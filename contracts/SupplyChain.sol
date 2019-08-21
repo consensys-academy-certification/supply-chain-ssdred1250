@@ -1,43 +1,134 @@
-// Implement the smart contract SupplyChain following the provided instructions.
-// Look at the tests in SupplyChain.test.js and run 'truffle test' to be sure that your contract is working properly.
-// Only this file (SupplyChain.sol) should be modified, otherwise your assignment submission may be disqualified.
-
 pragma solidity ^0.5.0;
 
 contract SupplyChain {
 
-  // Create a variable named 'itemIdCount' to store the number of items and also be used as reference for the next itemId.
+    address payable owner = msg.sender;
+    uint FEE = 1 finney;
 
-  // Create an enumerated type variable named 'State' to list the possible states of an item (in this order): 'ForSale', 'Sold', 'Shipped' and 'Received'.
+    uint itemIdCount = 0;
+    
+    enum State { ForSale, Sold, Shipped, Received }
+    
+    struct Item {
+      string name;
+      uint price;
+      State state;
+      address payable seller;
+      address buyer;
+    }
 
-  // Create a struct named 'Item' containing the following members (in this order): 'name', 'price', 'state', 'seller' and 'buyer'. 
+    mapping(uint => Item) items;
+    
+    event itemEvent(
+        uint itemId,
+        string name,
+        uint price,
+        State state,
+        address seller,
+        address buyer
+    );
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+    
+    modifier checkState(uint _id, State _state) {
+        require(items[_id].state == _state);
+        _;
+    }
+   
+    modifier checkCaller(address _caller) {
+        require(msg.sender == _caller);
+        _;
+    }
+    
+    modifier checkValue(uint _value) {
+        require(msg.value >= _value);
+        _;
+    }
+    
+    function addItem(string memory _name, uint _price) checkValue(FEE) public payable returns(uint) {
+        
+        Item memory newItem;
+        newItem.name = _name;
+        newItem.price = _price;
+        newItem.state = State.ForSale;
+        newItem.seller = msg.sender;
+        newItem.buyer = address(0);
+        uint newItemId = itemIdCount;
+        items[itemIdCount] = newItem; 
+        itemIdCount++;
+        
+        uint paymentChange = msg.value - FEE;
+        if (paymentChange > 0) {
+            address(msg.sender).transfer(paymentChange);
+        }
 
-  // Create a variable named 'items' to map itemIds to Items.
+        emit itemEvent(
+            newItemId,
+            items[newItemId].name,
+            items[newItemId].price,
+            items[newItemId].state,
+            items[newItemId].seller,
+            items[newItemId].buyer
+        );
 
-  // Create an event to log all state changes for each item.
+        return newItemId;
+    }
+    
+    function buyItem(uint _id) checkState(_id, State.ForSale) checkValue(items[_id].price) public payable {
+        
+        items[_id].buyer = msg.sender;
+        items[_id].state = State.Sold;
+        items[_id].seller.transfer(items[_id].price);
+       
+        uint paymentChange = msg.value - items[_id].price;
+        if (paymentChange > 0) {
+            address(msg.sender).transfer(paymentChange);
+        }
 
-
-
-  // Create a modifier named 'onlyOwner' where only the contract owner can proceed with the execution.
-
-  // Create a modifier named 'checkState' where the execution can only proceed if the respective Item of a given itemId is in a specific state.
-
-  // Create a modifier named 'checkCaller' where only the buyer or the seller (depends on the function) of an Item can proceed with the execution.
-
-  // Create a modifier named 'checkValue' where the execution can only proceed if the caller sent enough Ether to pay for a specific Item or fee.
-
-
-
-  // Create a function named 'addItem' that allows anyone to add a new Item by paying a fee of 1 finney. Any overpayment amount should be returned to the caller. All struct members should be mandatory except the buyer.
-
-  // Create a function named 'buyItem' that allows anyone to buy a specific Item by paying its price. The price amount should be transferred to the seller and any overpayment amount should be returned to the buyer.
-  
-  // Create a function named 'shipItem' that allows the seller of a specific Item to record that it has been shipped.
-
-  // Create a function named 'receiveItem' that allows the buyer of a specific Item to record that it has been received.
-
-  // Create a function named 'getItem' that allows anyone to get all the information of a specific Item in the same order of the struct Item. 
-
-  // Create a function named 'withdrawFunds' that allows the contract owner to withdraw all the available funds.
+        emit itemEvent(
+          _id,
+          items[_id].name,
+          items[_id].price,
+          items[_id].state,
+          items[_id].seller,
+          items[_id].buyer
+        );
+    }
+    
+    function shipItem(uint _id) checkState(_id, State.Sold) checkCaller(items[_id].seller) public {
+        items[_id].state = State.Shipped;
+        emit itemEvent(
+            _id,
+            items[_id].name,
+            items[_id].price,
+            items[_id].state,
+            items[_id].seller,
+            items[_id].buyer
+        );
+    }
+    
+    function receiveItem(uint _id) checkState(_id, State.Shipped) checkCaller(items[_id].buyer) public {
+        items[_id].state = State.Received;
+        emit itemEvent(
+            _id,
+            items[_id].name,
+            items[_id].price,
+            items[_id].state,
+            items[_id].seller,
+            items[_id].buyer
+        );
+    }
+    
+    function getItem(uint _id) view public returns(string memory, uint, State, address, address) {
+        return (items[_id].name, items[_id].price, items[_id].state, items[_id].seller, items[_id].buyer);
+    }
+    
+    function withdrawFunds() onlyOwner public {
+        require(address(this).balance > 0, 'No funds available.');
+        owner.transfer(address(this).balance);
+    }
 
 }
