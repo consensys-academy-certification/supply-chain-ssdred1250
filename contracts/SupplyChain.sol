@@ -48,7 +48,7 @@ contract SupplyChain {
         _;
     }
     
-    function addItem(string memory _name, uint _price) checkValue(FEE) public payable returns(uint) {
+    function addItem(string memory _name, uint _price) public payable checkValue(FEE) returns(uint) {
         
         Item memory newItem;
         newItem.name = _name;
@@ -77,7 +77,7 @@ contract SupplyChain {
         return newItemId;
     }
     
-    function buyItem(uint _id) checkState(_id, State.ForSale) checkValue(items[_id].price) public payable {
+    function buyItem(uint _id) public payable checkState(_id, State.ForSale) checkValue(items[_id].price) {
         
         items[_id].buyer = msg.sender;
         items[_id].state = State.Sold;
@@ -98,7 +98,7 @@ contract SupplyChain {
         );
     }
     
-    function shipItem(uint _id) checkState(_id, State.Sold) checkCaller(items[_id].seller) public {
+    function shipItem(uint _id) public checkState(_id, State.Sold) checkCaller(items[_id].seller) {
         items[_id].state = State.Shipped;
         emit itemEvent(
             _id,
@@ -110,7 +110,7 @@ contract SupplyChain {
         );
     }
     
-    function receiveItem(uint _id) checkState(_id, State.Shipped) checkCaller(items[_id].buyer) public {
+    function receiveItem(uint _id) public checkState(_id, State.Shipped) checkCaller(items[_id].buyer) {
         items[_id].state = State.Received;
         emit itemEvent(
             _id,
@@ -126,7 +126,7 @@ contract SupplyChain {
         return (items[_id].name, items[_id].price, items[_id].state, items[_id].seller, items[_id].buyer);
     }
     
-    function withdrawFunds() onlyOwner public {
+    function withdrawFunds() public onlyOwner {
         require(address(this).balance > 0, 'No funds available.');
         owner.transfer(address(this).balance);
     }
